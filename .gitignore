@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Next.js Build Outputs and Cache
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Package Directories
+frontend/node_modules/
+
+# Local SQLite Database
+backend/autopsy.db
+backend/autopsy.db-journal
+*.db
+
+# Environment Configuration / API Keys
+.env
+backend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Operating System Files
+.DS_Store
+Thumbs.db
