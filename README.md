@@ -28,6 +28,16 @@ agentautopsy/
 ### Backend
 
 ```bash
+# Create a virtual environment (at the root)
+python -m venv venv
+
+# Activate the virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies and start server
 cd backend
 pip install -r requirements.txt
 cp .env.example .env
