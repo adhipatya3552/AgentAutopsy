@@ -172,10 +172,6 @@ export default function Home() {
               Autonomous Black-Box Telemetry & Crash Diagnosis for AI Agent Pipelines
             </p>
           </div>
-          <div className="text-xs font-mono text-zinc-500 text-left sm:text-right bg-zinc-900/40 px-3 py-1.5 rounded-lg border border-zinc-800/50">
-            <div>API: <span className="text-purple-400">{API_URL}</span></div>
-            <div>Model: <span className="text-blue-400">Llama-3.3-70B</span></div>
-          </div>
         </header>
 
         {/* Controls Layout */}
