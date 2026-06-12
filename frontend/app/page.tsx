@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CyberpunkBackground } from "@/components/cyberpunk-background";
-import { InteractiveButton } from "@/components/interactive-button";
-import { HoverCard } from "@/components/hover-card";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -152,8 +149,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30 relative">
-      <CyberpunkBackground />
+    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30">
+      {/* Background Decorative Glow */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
       <div className="max-w-6xl mx-auto space-y-8">
         
@@ -179,8 +178,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Query Console */}
-          <HoverCard className="lg:col-span-2" glowColor="purple">
-            <div className="bg-[#0e0e15] border border-zinc-800/80 rounded-2xl p-6 relative overflow-hidden">
+          <div className="lg:col-span-2 bg-[#0e0e15] border border-zinc-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
             <h2 className="text-base font-semibold text-zinc-200 mb-3 flex items-center gap-2">
               <span className="w-1.5 h-3 bg-purple-500 rounded-sm" />
               Developer Pipeline Sandbox
@@ -188,18 +186,9 @@ export default function Home() {
             <p className="text-xs text-zinc-500 mb-4">
               Enter any query to trigger the LangGraph pipeline normally, or inject a crash test pattern using these flags:
               <span className="block mt-1 space-x-2">
-                <button onClick={() => setQuery("Analyze stock data FAIL_RESEARCH")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px] transition-all duration-200 hover:border-purple-500/40 hover:bg-purple-900/30 hover:shadow-lg hover:shadow-purple-500/20 relative overflow-hidden group">
-                  <span className="relative z-10">FAIL_RESEARCH</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/20 to-purple-500/0 opacity-0 group-hover:opacity-100 transform translate-x-full group-hover:translate-x-0 transition-all duration-500" />
-                </button>
-                <button onClick={() => setQuery("Summarize papers FAIL_ANALYSIS")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px] transition-all duration-200 hover:border-purple-500/40 hover:bg-purple-900/30 hover:shadow-lg hover:shadow-purple-500/20 relative overflow-hidden group">
-                  <span className="relative z-10">FAIL_ANALYSIS</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/20 to-purple-500/0 opacity-0 group-hover:opacity-100 transform translate-x-full group-hover:translate-x-0 transition-all duration-500" />
-                </button>
-                <button onClick={() => setQuery("Format results FAIL_RESPONSE")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px] transition-all duration-200 hover:border-purple-500/40 hover:bg-purple-900/30 hover:shadow-lg hover:shadow-purple-500/20 relative overflow-hidden group">
-                  <span className="relative z-10">FAIL_RESPONSE</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/20 to-purple-500/0 opacity-0 group-hover:opacity-100 transform translate-x-full group-hover:translate-x-0 transition-all duration-500" />
-                </button>
+                <button onClick={() => setQuery("Analyze stock data FAIL_RESEARCH")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px]">FAIL_RESEARCH</button>
+                <button onClick={() => setQuery("Summarize papers FAIL_ANALYSIS")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px]">FAIL_ANALYSIS</button>
+                <button onClick={() => setQuery("Format results FAIL_RESPONSE")} className="text-purple-400/80 hover:text-purple-300 font-mono bg-purple-950/20 border border-purple-500/10 px-1.5 py-0.5 rounded text-[10px]">FAIL_RESPONSE</button>
               </span>
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -210,20 +199,18 @@ export default function Home() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runPipeline()}
               />
-              <InteractiveButton
+              <button
                 onClick={() => runPipeline()}
                 disabled={loading || simulating}
-                variant="primary"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 text-white px-8 py-3 rounded-xl font-medium transition text-sm shadow-lg shadow-purple-950/20"
               >
                 {loading ? "Running Pipeline..." : "Execute Query"}
-              </InteractiveButton>
+              </button>
             </div>
-            </div>
-          </HoverCard>
+          </div>
 
           {/* Test / Sim Card */}
-          <HoverCard glowColor="blue">
-            <div className="bg-[#0e0e15] border border-zinc-800/80 rounded-2xl p-6 flex flex-col justify-between">
+          <div className="bg-[#0e0e15] border border-zinc-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
             <div>
               <h2 className="text-base font-semibold text-zinc-200 mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-3 bg-indigo-500 rounded-sm" />
@@ -233,12 +220,10 @@ export default function Home() {
                 Run system integrations tests simultaneously. Fuzz tests spin up a successful agent pipeline, a mid-process pipeline error, and a downstream formatter crash in parallel.
               </p>
             </div>
-            <InteractiveButton
+            <button
               onClick={runFuzzTest}
               disabled={loading || simulating}
-              variant="secondary"
-              fullWidth
-              className="mt-6"
+              className="mt-6 w-full border border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/80 text-zinc-300 disabled:opacity-40 py-3 rounded-xl font-medium transition text-sm flex items-center justify-center gap-2"
             >
               {simulating ? (
                 <>
@@ -251,9 +236,8 @@ export default function Home() {
                   Run System Fuzz Test
                 </>
               )}
-            </InteractiveButton>
-            </div>
-          </HoverCard>
+            </button>
+          </div>
 
         </div>
 
