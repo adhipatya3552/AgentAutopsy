@@ -1,9 +1,167 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// ─── Interactive Particle Network Background ────────────────────────────────
+function ParticleBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const particlesRef = useRef<Array<{
+    x: number; y: number; vx: number; vy: number;
+    radius: number; baseRadius: number; color: string;
+  }>>([]);
+  const animFrameRef = useRef<number>(0);
+
+  const PARTICLE_COUNT = 90;
+  const CONNECTION_DIST = 150;
+  const MOUSE_RADIUS = 200;
+
+  const colors = [
+    "rgba(168,85,247,0.6)",   // purple
+    "rgba(99,102,241,0.5)",   // indigo
+    "rgba(59,130,246,0.4)",   // blue
+    "rgba(236,72,153,0.3)",   // pink
+    "rgba(139,92,246,0.5)",   // violet
+  ];
+
+  const initParticles = useCallback((w: number, h: number) => {
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        radius: Math.random() * 2 + 1,
+        baseRadius: Math.random() * 2 + 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+    particlesRef.current = particles;
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      if (particlesRef.current.length === 0) {
+        initParticles(canvas.width, canvas.height);
+      }
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const onMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+    const onMouseLeave = () => {
+      mouseRef.current = { x: -1000, y: -1000 };
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseleave", onMouseLeave);
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const particles = particlesRef.current;
+      const mouse = mouseRef.current;
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        // Mouse interaction: push particles away gently
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < MOUSE_RADIUS) {
+          const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS;
+          const angle = Math.atan2(dy, dx);
+          p.vx += Math.cos(angle) * force * 0.3;
+          p.vy += Math.sin(angle) * force * 0.3;
+          p.radius = p.baseRadius + force * 3;
+        } else {
+          p.radius += (p.baseRadius - p.radius) * 0.05;
+        }
+
+        // Damping
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap edges
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+
+        // Draw connections to nearby particles
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const cdx = p.x - p2.x;
+          const cdy = p.y - p2.y;
+          const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+
+          if (cdist < CONNECTION_DIST) {
+            const opacity = (1 - cdist / CONNECTION_DIST) * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(139,92,246,${opacity})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+
+        // Draw connection to mouse if close
+        if (dist < MOUSE_RADIUS) {
+          const opacity = (1 - dist / MOUSE_RADIUS) * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.strokeStyle = `rgba(168,85,247,${opacity})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseleave", onMouseLeave);
+    };
+  }, [initParticles]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 0 }}
+    />
+  );
+}
+
+// ─── TypeScript Interfaces ──────────────────────────────────────────────────
 interface TokenBreakdown {
   prompt_tokens: number;
   completion_tokens: number;
@@ -39,6 +197,7 @@ interface Incident {
   created_at: string;
 }
 
+// ─── Main Page Component ────────────────────────────────────────────────────
 export default function Home() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -149,12 +308,11 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30">
-      {/* Background Decorative Glow */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30 relative">
+      {/* Interactive Particle Network Background */}
+      <ParticleBackground />
 
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8 relative" style={{ zIndex: 1 }}>
         
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800/60 pb-6 gap-4">
