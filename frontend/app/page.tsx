@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AnimatedBackground } from "@/components/animated-background";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -149,10 +150,8 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30">
-      {/* Background Decorative Glow */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+    <main className="min-h-screen bg-[#07070a] text-zinc-100 font-sans p-6 sm:p-12 selection:bg-purple-500/30 relative">
+      <AnimatedBackground />
 
       <div className="max-w-6xl mx-auto space-y-8">
         
