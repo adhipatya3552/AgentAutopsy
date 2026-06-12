@@ -14,9 +14,9 @@ function ParticleBackground() {
   }>>([]);
   const animFrameRef = useRef<number>(0);
 
-  const PARTICLE_COUNT = 90;
-  const CONNECTION_DIST = 150;
-  const MOUSE_RADIUS = 200;
+  const PARTICLE_COUNT = 200;
+  const CONNECTION_DIST = 140;
+  const MOUSE_RADIUS = 250;
 
   const colors = [
     "rgba(168,85,247,0.6)",   // purple
@@ -75,16 +75,16 @@ function ParticleBackground() {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // Mouse interaction: push particles away gently
-        const dx = p.x - mouse.x;
-        const dy = p.y - mouse.y;
+        // Mouse interaction: attract particles toward cursor
+        const dx = mouse.x - p.x;
+        const dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < MOUSE_RADIUS) {
+        if (dist < MOUSE_RADIUS && dist > 5) {
           const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS;
           const angle = Math.atan2(dy, dx);
-          p.vx += Math.cos(angle) * force * 0.3;
-          p.vy += Math.sin(angle) * force * 0.3;
+          p.vx += Math.cos(angle) * force * 0.15;
+          p.vy += Math.sin(angle) * force * 0.15;
           p.radius = p.baseRadius + force * 3;
         } else {
           p.radius += (p.baseRadius - p.radius) * 0.05;
