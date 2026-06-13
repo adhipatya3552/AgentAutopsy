@@ -110,7 +110,7 @@ Keep it concise and professional."""
     try:
         cur.execute(
             "INSERT OR REPLACE INTO failure_cache (signature, report, created_at) VALUES (?, ?, ?)",
-            (signature, report, datetime.utcnow().isoformat())
+            (signature, report, datetime.utcnow().isoformat() + "Z")
         )
         conn.commit()
     except Exception as e:
@@ -139,7 +139,7 @@ def save_incident(state: dict, report: str):
             sanitized_error,
             json.dumps(sanitized_trace),
             sanitized_report,
-            datetime.utcnow().isoformat(),
+            datetime.utcnow().isoformat() + "Z",
         ),
     )
     conn.commit()
