@@ -1,104 +1,110 @@
-# AgentAutopsy
+# AgentAutopsy 🚀
 
-**Black-Box Flight Recorder for AI Agent Systems**
+**Autonomous Black-Box Flight Recorder & Telemetry Watcher for Multi-Agent AI Systems**
 
-A 3-agent LangGraph pipeline (Research → Analysis → Response). When any agent
-fails, AgentAutopsy automatically generates a human-readable root-cause
-incident report — like a flight recorder for AI systems.
+AgentAutopsy acts as a black-box flight recorder for AI agent systems. Built on a 3-agent LangGraph pipeline (Research ➔ Analysis ➔ Response), it automatically intercepts agent failures, generates structured, LLM-powered root-cause incident reports, caches diagnostic patterns, and logs sanitized telemetry to a secure local database.
 
 ---
 
-## Project Structure
+## 🛠️ Project Structure
 
 ```
 agentautopsy/
-├── backend/        FastAPI + LangGraph + Groq
-│   ├── main.py      API endpoints (/run, /incidents)
-│   ├── pipeline.py  3-agent LangGraph pipeline
-│   ├── monitor.py   Root-cause analyzer + SQLite storage
-│   └── requirements.txt
-└── frontend/       Next.js dashboard
-    └── app/page.tsx
+├── backend/            FastAPI + LangGraph + Groq + slowapi
+│   ├── main.py          - API endpoints (/run, /incidents) with RBAC & Rate Limiting
+│   ├── pipeline.py      - 3-agent LangGraph execution pipeline with Langfuse tracing
+│   ├── monitor.py       - LLM-powered root-cause analyzer & SQLite log recorder
+│   ├── sanitizer.py     - PII & API Key masking module
+│   ├── test_suite.py    - Integration & Fuzz testing suite
+│   ├── requirements.txt - Declared Python dependencies
+│   └── autopsy.db       - SQLite database (log history & cache storage)
+└── frontend/           Next.js 16 + Tailwind CSS Dashboard
+    └── app/page.tsx     - Interactive sandbox, Fuzz controls, and history logs
 ```
 
 ---
 
-## 1. Local Setup
+## 🛡️ Reliability & Security Pillars
 
-### Backend
+AgentAutopsy implements the five critical pillars of enterprise AI reliability:
 
-```bash
-# Create a virtual environment (at the root)
-python -m venv venv
-
-# Activate the virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies and start server
-cd backend
-pip install -r requirements.txt
-cp .env.example .env
-# Add your free Groq API key (https://console.groq.com) to .env
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.local.example .env.local
-npm run dev
-```
-
-Open http://localhost:3000
+1. **Langfuse Distributed Tracing:** Integrates the Langfuse SDK (`CallbackHandler`) to trace execution paths, model costs, token usage, and latencies across all graph agents in real-time.
+2. **Failure Pattern Caching:** Caches LLM-generated incident diagnostics using SHA-256 signatures of `failed_step:error_message` in SQLite. Speeds up diagnostic latency to `<5ms` and saves API costs on recurring failure patterns (noted via the `⚡ CACHE HIT` badge in the UI).
+3. **Role-Based Access Control (RBAC):** Backend verifies `X-User-Role` request headers. Unauthorized roles (e.g. `Viewer`) are blocked by `403 Forbidden` errors, while the dashboard dynamically locks Sandbox runs and Fuzz suites.
+4. **Sensitive Data Sanitization:** Intercepts traces before database logging to redact Groq API keys, Langfuse keys, email addresses, IPv4 addresses, and password/secret declarations via strict regex filters.
+5. **IP-Based Rate Limiting:** Enforces endpoint protection (`slowapi` integration) on the `/run` execution endpoint to prevent DDoS and API abuse (throttles to `10 requests/minute`).
+6. **Self-Monitoring Fallback:** Wraps the diagnostic analyzer in a failsafe try-catch block. If the LLM analyzer fails, the system automatically falls back to a raw trace dump, ensuring zero silent crashes.
 
 ---
 
-## 2. Demo Instructions
+## 💻 Local Setup
 
-- Type a normal query → pipeline runs successfully, shows final response.
-- Type a query containing `FAIL_RESEARCH`, `FAIL_ANALYSIS`, or `FAIL_RESPONSE`
-  → that step fails on purpose, and AgentAutopsy auto-generates an incident
-  report explaining the root cause.
-- Past incidents are saved and shown in "Incident History".
+### 1. Backend
+
+1. Create and activate a Python virtual environment:
+   ```bash
+   python -m venv venv
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   ```
+2. Install dependencies:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+3. Set up environment variables:
+   Create a `.env` file in the `backend/` directory:
+   ```env
+   GROQ_API_KEY=gsk_...
+   LANGFUSE_PUBLIC_KEY=pk-lf-...
+   LANGFUSE_SECRET_KEY=sk-lf-...
+   LANGFUSE_HOST=https://cloud.langfuse.com
+   ```
+   *(If keys are omitted, the backend runs gracefully in a simulated mock mode).*
+4. Start the FastAPI server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+
+### 2. Frontend
+
+1. Install Node.js packages and launch the Next.js development server:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+2. Open [http://localhost:3000](http://localhost:3000) to view the telemetry dashboard.
 
 ---
 
-## 3. Deployment (Free)
+## 🧪 Testing & Fuzz Simulation
 
-### Backend → Render
-1. Push this repo to GitHub.
-2. Create new Web Service on render.com, point to `backend/` folder.
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variable `GROQ_API_KEY`.
+AgentAutopsy includes a local integration and failure simulation suite to audit system reliability under load.
 
-### Frontend → Vercel
-1. Import the repo on vercel.com, set root directory to `frontend/`.
-2. Add env variable `NEXT_PUBLIC_API_URL` = your Render backend URL.
-3. Deploy.
+* **Run the automated suite:**
+  ```bash
+  python backend/test_suite.py
+  ```
+* **Interactive Fuzzing:** Use the **Run System Fuzz Test** button on the Next.js dashboard to execute a success path, a research agent crash, and a response layout crash in parallel.
+* **Failure Injection Flags:** Append `FAIL_RESEARCH`, `FAIL_ANALYSIS`, or `FAIL_RESPONSE` to any query in the Sandbox console to trigger step errors and generate root-cause reports.
 
 ---
 
-## Tech Stack
+## 🚀 Free Tier Deployment
 
-- **Agent Framework:** LangGraph
-- **LLM:** Groq (Llama 3.3 70B) — free tier
-- **Backend:** FastAPI
-- **Database:** SQLite
-- **Frontend:** Next.js + Tailwind CSS
-- **Deploy:** Render (backend) + Vercel (frontend)
+### Backend ➔ Render
+1. Push this repository to GitHub.
+2. Create a new Web Service on [Render](https://render.com) and link it to the `backend/` subdirectory.
+3. Configure settings:
+   * **Build Command:** `pip install -r requirements.txt`
+   * **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+4. Add environment variables: `GROQ_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_HOST`.
 
----
-
-## Why AgentAutopsy?
-
-Debugging multi-agent AI pipelines is manual and slow — developers dig
-through logs for hours to find which agent failed and why. AgentAutopsy
-automates this: it traces every agent call, detects failures, and produces
-a clear incident report (Summary, Root Cause, Impact, Recommended Fix)
-automatically.
+### Frontend ➔ Vercel
+1. Import this repository on [Vercel](https://vercel.com).
+2. Set the root directory to `frontend/`.
+3. Add the Environment Variable `NEXT_PUBLIC_API_URL` pointing to your Render backend web service.
+4. Deploy!
