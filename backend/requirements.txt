@@ -3,5 +3,7 @@ uvicorn
 langgraph
 langchain-groq
 langfuse
+langchain
+slowapi
 python-dotenv
 pydantic

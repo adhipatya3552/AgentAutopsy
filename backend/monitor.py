@@ -7,9 +7,11 @@ and generates a human-readable incident report.
 import os
 import json
 import sqlite3
+import hashlib
 from datetime import datetime
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+from sanitizer import sanitize_text, sanitize_data
 
 load_dotenv()
 
@@ -45,12 +47,39 @@ def init_db():
             created_at TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS failure_cache (
+            signature TEXT PRIMARY KEY,
+            report TEXT,
+            created_at TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
 
-def generate_incident_report(state: dict) -> str:
-    """Use LLM to reason about the failure and produce a root-cause report."""
+def generate_incident_report(state: dict) -> tuple[str, bool]:
+    """Use LLM to reason about the failure and produce a root-cause report.
+    Returns a tuple of (report_content, cached_hit)."""
+    failed_step = state.get("failed_step", "")
+    error_message = state.get("error_message", "")
+
+    # Calculate failure signature for pattern-based caching
+    raw_sig = f"{failed_step}:{error_message}"
+    signature = hashlib.sha256(raw_sig.encode("utf-8")).hexdigest()
+
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT report FROM failure_cache WHERE signature = ?", (signature,))
+    row = cur.fetchone()
+
+    if row:
+        conn.close()
+        # Cache Hit: return report and True
+        return row[0], True
+
+    # Cache Miss: call LLM to generate analysis
     trace_summary = "\n".join(
         f"- Step: {t['step']} | Status: {t['status']} | Detail: {t['detail']}"
         for t in state["trace"]
@@ -62,8 +91,8 @@ A pipeline run FAILED. Here is the execution trace:
 
 {trace_summary}
 
-Failed step: {state['failed_step']}
-Error message: {state['error_message']}
+Failed step: {failed_step}
+Error message: {error_message}
 Original user query: {state['query']}
 
 Write a clear, structured incident report with these sections:
@@ -75,21 +104,41 @@ Write a clear, structured incident report with these sections:
 Keep it concise and professional."""
 
     result = llm.invoke(prompt)
-    return result.content
+    report = result.content
+
+    # Save generated report to failure cache
+    try:
+        cur.execute(
+            "INSERT OR REPLACE INTO failure_cache (signature, report, created_at) VALUES (?, ?, ?)",
+            (signature, report, datetime.utcnow().isoformat())
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"[Cache Error] Failed to write cache: {e}")
+
+    conn.close()
+    return report, False
 
 
 def save_incident(state: dict, report: str):
     init_db()
+    
+    # Sanitize trace data before storage to prevent exposing sensitive details
+    sanitized_query = sanitize_text(state["query"])
+    sanitized_error = sanitize_text(state["error_message"])
+    sanitized_trace = sanitize_data(state["trace"])
+    sanitized_report = sanitize_text(report)
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
         "INSERT INTO incidents (query, failed_step, error_message, trace, report, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (
-            state["query"],
+            sanitized_query,
             state["failed_step"],
-            state["error_message"],
-            json.dumps(state["trace"]),
-            report,
+            sanitized_error,
+            json.dumps(sanitized_trace),
+            sanitized_report,
             datetime.utcnow().isoformat(),
         ),
     )
@@ -115,3 +164,4 @@ def get_all_incidents():
         }
         for r in rows
     ]
+

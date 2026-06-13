@@ -14,10 +14,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Initialize Langfuse callback handler if environment credentials exist
+langfuse_callback = None
+if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+    try:
+        from langfuse.langchain import CallbackHandler
+        langfuse_callback = CallbackHandler()
+        print("[Langfuse] CallbackHandler initialized successfully.")
+    except Exception as e:
+        print(f"[Langfuse] Warning: Failed to initialize callback handler: {e}")
+
 key = os.getenv("GROQ_API_KEY")
 if not key or key == "mock_key" or not key.startswith("gsk_"):
     class MockLLM:
-        def invoke(self, prompt: str):
+        def invoke(self, prompt: str, **kwargs):
             class MockResult:
                 content = f"[Mock response for prompt: '{prompt[:40]}...']"
                 response_metadata = {"token_usage": {"prompt_tokens": 45, "completion_tokens": 55, "total_tokens": 100}}
@@ -82,7 +92,8 @@ def research_agent(state: PipelineState) -> PipelineState:
         if "FAIL_RESEARCH" in state["query"]:
             raise ValueError("Research data source returned empty result set")
 
-        result = llm.invoke(prompt)
+        config = {"callbacks": [langfuse_callback]} if langfuse_callback else {}
+        result = llm.invoke(prompt, config=config)
         state["research_output"] = result.content
         latency_ms = int((time.time() - start_time) * 1000)
         tokens = get_token_usage(result, prompt)
@@ -111,7 +122,8 @@ def analysis_agent(state: PipelineState) -> PipelineState:
         if "FAIL_ANALYSIS" in state["query"]:
             raise TimeoutError("Analysis model call timed out after 30s")
 
-        result = llm.invoke(prompt)
+        config = {"callbacks": [langfuse_callback]} if langfuse_callback else {}
+        result = llm.invoke(prompt, config=config)
         state["analysis_output"] = result.content
         latency_ms = int((time.time() - start_time) * 1000)
         tokens = get_token_usage(result, prompt)
@@ -139,7 +151,8 @@ def response_agent(state: PipelineState) -> PipelineState:
         if "FAIL_RESPONSE" in state["query"]:
             raise RuntimeError("Response formatting agent crashed - invalid output schema")
 
-        result = llm.invoke(prompt)
+        config = {"callbacks": [langfuse_callback]} if langfuse_callback else {}
+        result = llm.invoke(prompt, config=config)
         state["final_response"] = result.content
         latency_ms = int((time.time() - start_time) * 1000)
         tokens = get_token_usage(result, prompt)
@@ -182,5 +195,8 @@ def run_pipeline(query: str) -> PipelineState:
         "failed_step": "",
         "error_message": "",
     }
-    result = pipeline.invoke(initial_state)
+    config = {}
+    if langfuse_callback:
+        config["callbacks"] = [langfuse_callback]
+    result = pipeline.invoke(initial_state, config=config)
     return result

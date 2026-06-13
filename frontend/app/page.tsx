@@ -186,6 +186,7 @@ interface RunResult {
   error_message?: string;
   incident_report?: string;
   query_label?: string;
+  cached_hit?: boolean;
 }
 
 interface Incident {
@@ -208,6 +209,7 @@ export default function Home() {
   // Simulation / Fuzzing states
   const [simulating, setSimulating] = useState(false);
   const [simResults, setSimResults] = useState<RunResult[]>([]);
+  const [role, setRole] = useState("developer"); // Added user role state for mock RBAC
 
   const fetchIncidents = async () => {
     try {
@@ -246,9 +248,20 @@ export default function Home() {
     try {
       const res = await fetch(`${API_URL}/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-User-Role": role
+        },
         body: JSON.stringify({ query: q }),
       });
+      if (!res.ok) {
+        if (res.status === 403) {
+          const errData = await res.json();
+          setActiveStep(errData.detail || "Forbidden");
+          return;
+        }
+        throw new Error("HTTP error " + res.status);
+      }
       const data = await res.json();
       setResult(data);
       fetchIncidents();
@@ -277,9 +290,19 @@ export default function Home() {
       const promises = testCases.map(async (tc) => {
         const res = await fetch(`${API_URL}/run`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "X-User-Role": role
+          },
           body: JSON.stringify({ query: tc.query }),
         });
+        if (!res.ok) {
+          if (res.status === 403) {
+            const errData = await res.json();
+            throw new Error(errData.detail || "Forbidden");
+          }
+          throw new Error("HTTP error " + res.status);
+        }
         const data = await res.json();
         return { ...data, query_label: tc.label };
       });
@@ -287,8 +310,9 @@ export default function Home() {
       const results = await Promise.all(promises);
       setSimResults(results);
       fetchIncidents();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || "Failed to run fuzz test suite");
     } finally {
       setSimulating(false);
     }
@@ -330,6 +354,19 @@ export default function Home() {
               Autonomous Black-Box Telemetry & Crash Diagnosis for AI Agent Pipelines
             </p>
           </div>
+
+          {/* RBAC User Selector Dropdown */}
+          <div className="flex items-center gap-2.5 bg-[#0e0e15] border border-zinc-850 px-3.5 py-2 rounded-xl self-start sm:self-center">
+            <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">User Role:</span>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="bg-[#050508] border border-zinc-800 text-zinc-200 text-xs font-semibold px-2.5 py-1 rounded outline-none focus:border-purple-500/80 transition cursor-pointer"
+            >
+              <option value="developer">Developer (Full Access)</option>
+              <option value="viewer">Viewer (Read-Only)</option>
+            </select>
+          </div>
         </header>
 
         {/* Controls Layout */}
@@ -359,12 +396,20 @@ export default function Home() {
               />
               <button
                 onClick={() => runPipeline()}
-                disabled={loading || simulating}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 text-white px-8 py-3 rounded-xl font-medium transition text-sm shadow-lg shadow-purple-950/20"
+                disabled={loading || simulating || role === "viewer"}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 text-white px-8 py-3 rounded-xl font-medium transition text-sm shadow-lg shadow-purple-950/20 flex items-center justify-center gap-1.5"
               >
-                {loading ? "Running Pipeline..." : "Execute Query"}
+                {role === "viewer" && (
+                  <svg className="w-3.5 h-3.5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                )}
+                {loading ? "Running Pipeline..." : role === "viewer" ? "Developer Access Required" : "Execute Query"}
               </button>
             </div>
+            {role === "viewer" && (
+              <p className="text-[11px] text-rose-400/80 mt-2 font-mono flex items-center gap-1.5">
+                ⚠️ Current role 'Viewer' is read-only. Sandbox executions are blocked by RBAC policy.
+              </p>
+            )}
           </div>
 
           {/* Test / Sim Card */}
@@ -380,7 +425,7 @@ export default function Home() {
             </div>
             <button
               onClick={runFuzzTest}
-              disabled={loading || simulating}
+              disabled={loading || simulating || role === "viewer"}
               className="mt-6 w-full border border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/80 text-zinc-300 disabled:opacity-40 py-3 rounded-xl font-medium transition text-sm flex items-center justify-center gap-2"
             >
               {simulating ? (
@@ -390,8 +435,17 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                  Run System Fuzz Test
+                  {role === "viewer" ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                      Developer Access Required
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                      Run System Fuzz Test
+                    </>
+                  )}
                 </>
               )}
             </button>
@@ -462,9 +516,16 @@ export default function Home() {
             {/* Incident Analysis Card */}
             {!result.success && result.incident_report && (
               <div className="bg-rose-950/10 border border-rose-500/20 rounded-xl p-5 space-y-3">
-                <div className="flex items-center gap-2 text-rose-400 text-xs font-mono font-bold uppercase tracking-wider">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                  AgentAutopsy Root-Cause Report
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-rose-400 text-xs font-mono font-bold uppercase tracking-wider">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    AgentAutopsy Root-Cause Report
+                  </div>
+                  {result.cached_hit && (
+                    <span className="flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-wider animate-pulse">
+                      ⚡ CACHE HIT
+                    </span>
+                  )}
                 </div>
                 <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap border-l-2 border-rose-500/30 pl-4 py-1 font-mono text-[13px]">
                   {result.incident_report}
@@ -507,8 +568,11 @@ export default function Home() {
                   </div>
 
                   {!sim.success && sim.incident_report && (
-                    <div className="text-[11px] font-mono border-t border-zinc-800/40 pt-3 text-rose-300 leading-normal line-clamp-4">
+                    <div className="text-[11px] font-mono border-t border-zinc-800/40 pt-3 text-rose-300 leading-normal line-clamp-4 relative">
                       <strong>Diagnosis:</strong> {sim.incident_report}
+                      {sim.cached_hit && (
+                        <span className="absolute right-0 top-3 text-[9px] font-bold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded">CACHE HIT</span>
+                      )}
                     </div>
                   )}
                   {sim.success && sim.final_response && (

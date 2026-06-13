@@ -60,9 +60,9 @@ def run_test_case(name: str, query: str, expected_success: bool):
             return False
             
         if not success:
-            report = monitor.generate_incident_report(state)
+            report, cached_hit = monitor.generate_incident_report(state)
             monitor.save_incident(state, report)
-            print("  Incident logged successfully.")
+            print(f"  Incident logged successfully. Cache Hit: {cached_hit}")
             
         print("  [PASS]")
         return True
